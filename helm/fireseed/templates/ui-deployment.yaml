@@ -17,6 +17,7 @@ spec:
         app: fireseed-ui
     spec:
 {{- include "fireseed.imagePullSecrets" . }}
+      {{- include "fireseed.podPlacement" . | nindent 6 }}
       containers:
         - name: ui
           image: {{ include "fireseed.image" (dict "global" .Values.global "name" "fireseed-ui" "chart" .Chart) }}

@@ -17,6 +17,7 @@ spec:
         app: fireseed-browser
     spec:
 {{- include "fireseed.imagePullSecrets" . }}
+      {{- include "fireseed.podPlacement" . | nindent 6 }}
       containers:
         - name: browser
           image: {{ include "fireseed.image" (dict "global" .Values.global "name" "fireseed-browser" "chart" .Chart) }}

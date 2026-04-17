@@ -17,6 +17,7 @@ spec:
         app: fireseed-litellm
     spec:
 {{- include "fireseed.imagePullSecrets" . }}
+      {{- include "fireseed.podPlacement" . | nindent 6 }}
       containers:
         - name: litellm
           image: {{ include "fireseed.image" (dict "global" .Values.global "name" "fireseed-litellm" "chart" .Chart) }}

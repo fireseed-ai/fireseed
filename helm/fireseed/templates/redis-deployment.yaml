@@ -16,6 +16,7 @@ spec:
       labels:
         app: fireseed-redis
     spec:
+      {{- include "fireseed.podPlacement" . | nindent 6 }}
       containers:
         - name: redis
           image: redis:7-alpine

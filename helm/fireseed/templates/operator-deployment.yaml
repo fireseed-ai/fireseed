@@ -18,6 +18,7 @@ spec:
     spec:
 {{- include "fireseed.imagePullSecrets" . }}
       serviceAccountName: fireseed-operator
+      {{- include "fireseed.podPlacement" . | nindent 6 }}
       containers:
         - name: operator
           image: {{ include "fireseed.image" (dict "global" .Values.global "name" "fireseed-operator" "chart" .Chart) }}
@@ -50,10 +51,16 @@ spec:
                 secretKeyRef:
                   name: {{ include "fireseed.secretName" $ }}
                   key: postgres-password
+            - name: POSTGRES_HOST
+              value: {{ include "fireseed.postgresHost" . | quote }}
+            - name: POSTGRES_PORT
+              value: {{ include "fireseed.postgresPort" . | quote }}
             - name: POSTGRES_USER
-              value: {{ .Values.postgres.user | quote }}
+              value: {{ include "fireseed.postgresUser" . | quote }}
             - name: POSTGRES_DB
-              value: {{ .Values.postgres.database | quote }}
+              value: {{ include "fireseed.postgresDatabase" . | quote }}
+            - name: POSTGRES_CIDR
+              value: {{ .Values.postgres.external.cidr | default "" | quote }}
           {{- with .Values.operator.resources }}
           resources:
             {{- toYaml . | nindent 12 }}

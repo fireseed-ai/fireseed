@@ -37,8 +37,29 @@ global:
   imagePullSecrets: []
 
 # ─────────────────────────────────────────────────────────────
-# Postgres (bundled)
+# Pod placement
 # ─────────────────────────────────────────────────────────────
+# Applied uniformly to every platform pod (api, ui, operator, browser,
+# litellm, redis, squid, bundled postgres + its backup CronJob).
+#
+# Example — pin everything to arm64 nodes:
+#   nodeSelector:
+#     kubernetes.io/arch: arm64
+nodeSelector: {}
+affinity: {}
+tolerations: []
+
+# ─────────────────────────────────────────────────────────────
+# Postgres
+# ─────────────────────────────────────────────────────────────
+# By default, the chart provisions a bundled single-replica PostgreSQL
+# StatefulSet. To point the platform at an external database (e.g. AWS RDS),
+# set postgres.external.enabled=true and configure the connection below —
+# the bundled StatefulSet, Service, and backup CronJob are then not rendered.
+#
+# Multi-tenant model is unchanged: the operator creates one database and one
+# role per FireseedApp on whichever PostgreSQL is in use. The external master
+# user must therefore have CREATEDB + CREATEROLE (the RDS master user does).
 postgres:
   image: postgres:16
   user: fireseed
@@ -54,6 +75,22 @@ postgres:
     limits:
       cpu: 500m
       memory: 1Gi
+  external:
+    enabled: false
+    # Host and port of the external PostgreSQL (e.g. RDS writer endpoint).
+    # Must be the primary writer — file-sync relies on LISTEN/NOTIFY, which
+    # is not served from RDS read replicas.
+    host: ""
+    port: 5432
+    user: fireseed
+    database: fireseed
+    # Password is read from the main existingSecret under the
+    # postgres-password key (same as the bundled Postgres).
+    # CIDR of the external database, used by the operator to emit an
+    # ipBlock egress NetworkPolicy so app pods can reach it (the bundled
+    # namespaceSelector-based rule doesn't apply to off-cluster hosts).
+    # Example: "10.0.12.34/32" for a single RDS endpoint IP.
+    cidr: ""
 
 redis:
   resources:
@@ -70,11 +107,9 @@ redis:
 api:
   replicas: 1
   port: 8000
-  env:
-    POSTGRES_HOST: fireseed-postgres
-    POSTGRES_PORT: "5432"
-    POSTGRES_USER: fireseed
-    POSTGRES_DB: fireseed
+  # POSTGRES_* connection details are derived from the postgres.* values
+  # above (bundled or external) via the fireseed.postgres* helpers — no
+  # need to duplicate them here.
   resources:
     requests:
       cpu: 200m

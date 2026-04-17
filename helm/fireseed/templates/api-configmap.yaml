@@ -7,8 +7,8 @@ metadata:
     app: fireseed-api
     {{- include "fireseed.labels" . | nindent 4 }}
 data:
-  POSTGRES_HOST: {{ .Values.api.env.POSTGRES_HOST | quote }}
-  POSTGRES_PORT: {{ .Values.api.env.POSTGRES_PORT | quote }}
-  POSTGRES_USER: {{ .Values.api.env.POSTGRES_USER | quote }}
-  POSTGRES_DB: {{ .Values.api.env.POSTGRES_DB | quote }}
+  POSTGRES_HOST: {{ include "fireseed.postgresHost" . | quote }}
+  POSTGRES_PORT: {{ include "fireseed.postgresPort" . | quote }}
+  POSTGRES_USER: {{ include "fireseed.postgresUser" . | quote }}
+  POSTGRES_DB: {{ include "fireseed.postgresDatabase" . | quote }}
   BASE_DOMAIN: {{ .Values.baseDomain | quote }}

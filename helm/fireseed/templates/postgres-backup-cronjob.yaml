@@ -1,4 +1,4 @@
-{{- if .Values.postgres.backup.enabled }}
+{{- if and .Values.postgres.backup.enabled (not .Values.postgres.external.enabled) }}
 apiVersion: batch/v1
 kind: CronJob
 metadata:
@@ -17,6 +17,7 @@ spec:
       template:
         spec:
           restartPolicy: OnFailure
+          {{- include "fireseed.podPlacement" . | nindent 10 }}
           containers:
             - name: backup
               image: postgres:16

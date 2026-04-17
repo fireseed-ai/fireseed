@@ -17,6 +17,7 @@ spec:
         app: fireseed-squid
     spec:
 {{- include "fireseed.imagePullSecrets" . }}
+      {{- include "fireseed.podPlacement" . | nindent 6 }}
       containers:
         - name: squid
           image: {{ include "fireseed.image" (dict "global" .Values.global "name" "fireseed-squid" "chart" .Chart) }}

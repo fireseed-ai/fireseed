@@ -18,6 +18,7 @@ spec:
     spec:
 {{- include "fireseed.imagePullSecrets" . }}
       serviceAccountName: fireseed-api
+      {{- include "fireseed.podPlacement" . | nindent 6 }}
       containers:
         - name: api
           image: {{ include "fireseed.image" (dict "global" .Values.global "name" "fireseed-api" "chart" .Chart) }}
