@@ -18,8 +18,7 @@ baseDomain: ""
 #   secret-key         — JWT signing key (≥32 chars) + project-token HMAC
 #   litellm-key        — LiteLLM master key (sk-…)
 #   service-token      — internal service-to-service auth token
-#   admin-email        — bootstrap admin user email
-#   admin-password     — bootstrap admin user password
+#   admin-password     — bootstrap admin user password (user is admin@internal)
 #
 # Optional keys:
 #   firecrawl-api-key  — enables web_search tool

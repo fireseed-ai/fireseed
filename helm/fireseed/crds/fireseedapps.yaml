@@ -26,9 +26,6 @@ spec:
                   type: string
                 fireseedApiUrl:
                   type: string
-                mode:
-                  type: string
-                  enum: ["dev", "production"]
                 database:
                   type: object
                   properties:

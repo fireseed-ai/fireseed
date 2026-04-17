@@ -64,11 +64,6 @@ spec:
                 secretKeyRef:
                   name: {{ include "fireseed.secretName" $ }}
                   key: service-token
-            - name: ADMIN_EMAIL
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "fireseed.secretName" $ }}
-                  key: admin-email
             - name: ADMIN_PASSWORD
               valueFrom:
                 secretKeyRef:
