@@ -1,0 +1,35 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fireseed-litellm-config
+  namespace: {{ include "fireseed.namespace" . }}
+  labels:
+    app: fireseed-litellm
+    {{- include "fireseed.labels" . | nindent 4 }}
+data:
+  config.yaml: |
+    model_list:
+      - model_name: claude-sonnet-4-6
+        litellm_params:
+          model: bedrock/us.anthropic.claude-sonnet-4-6
+          aws_region_name: us-west-2
+          aws_bedrock_api_key: os.environ/AWS_BEARER_TOKEN_BEDROCK
+      - model_name: claude-opus-4-6
+        litellm_params:
+          model: bedrock/us.anthropic.claude-opus-4-6
+          aws_region_name: us-west-2
+          aws_bedrock_api_key: os.environ/AWS_BEARER_TOKEN_BEDROCK
+      - model_name: claude-3-5-sonnet
+        litellm_params:
+          model: bedrock/anthropic.claude-3-5-sonnet-20241022-v2:0
+          aws_region_name: us-west-2
+          aws_bedrock_api_key: os.environ/AWS_BEARER_TOKEN_BEDROCK
+      - model_name: claude-haiku-4-5
+        litellm_params:
+          model: bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0
+          aws_region_name: us-west-2
+          aws_bedrock_api_key: os.environ/AWS_BEARER_TOKEN_BEDROCK
+    general_settings:
+      master_key: sk-fireseed-master-key
+    litellm_settings:
+      drop_params: true

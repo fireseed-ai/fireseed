@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fireseed-browser
+  namespace: {{ include "fireseed.namespace" . }}
+  labels:
+    app: fireseed-browser
+    {{- include "fireseed.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.browser.replicas | default 1 }}
+  selector:
+    matchLabels:
+      app: fireseed-browser
+  template:
+    metadata:
+      labels:
+        app: fireseed-browser
+    spec:
+{{- include "fireseed.imagePullSecrets" . }}
+      containers:
+        - name: browser
+          image: {{ include "fireseed.image" (dict "global" .Values.global "name" "fireseed-browser") }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy | default "IfNotPresent" }}
+          env:
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+          ports:
+            - containerPort: {{ .Values.browser.port }}
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: {{ .Values.browser.port }}
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: {{ .Values.browser.port }}
+            initialDelaySeconds: 10
+            periodSeconds: 15

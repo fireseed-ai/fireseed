@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: fireseed-browser
+  namespace: {{ include "fireseed.namespace" . }}
+  labels:
+    app: fireseed-browser
+    {{- include "fireseed.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    app: fireseed-browser
+  ports:
+    - port: {{ .Values.browser.port }}
+      targetPort: {{ .Values.browser.port }}
+      protocol: TCP

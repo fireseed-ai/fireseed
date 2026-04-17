@@ -1,0 +1,15 @@
+Fireseed Helm Chart
+Copyright 2026 Fireseed
+
+This product includes software developed at Fireseed (https://fireseed.dev/).
+
+Licensed under the Apache License, Version 2.0 (the "License"); you may not
+use this product except in compliance with the License. A copy of the
+License is provided in the LICENSE file at the root of this repository and
+is also available at:
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+The Helm chart in this repository is open source under the above licence.
+The application container images referenced by the chart are distributed
+under separate terms — see the README for details.

@@ -1,0 +1,7 @@
+# Local development overrides
+# Usage: helm install fireseed ./helm/fireseed -f helm/fireseed/values-dev.yaml
+
+global:
+  registry: ""
+  imagePullPolicy: Never
+  tag: latest

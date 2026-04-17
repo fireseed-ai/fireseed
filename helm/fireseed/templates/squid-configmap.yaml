@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fireseed-squid-config
+  namespace: {{ include "fireseed.namespace" . }}
+  labels:
+    app: fireseed-squid
+    {{- include "fireseed.labels" . | nindent 4 }}
+data:
+  squid.conf: |
+    acl fireseed_allowed dstdomain "/etc/squid/allowed_hosts.txt"
+    acl SSL_ports port 443
+    acl Safe_ports port 80
+    acl Safe_ports port 443
+    acl CONNECT method CONNECT
+    http_access allow CONNECT fireseed_allowed SSL_ports
+    http_access allow fireseed_allowed Safe_ports
+    http_access deny all
+    http_port 3128
+    cache deny all
+    access_log /var/log/squid/access.log
+    cache_log /var/log/squid/cache.log
+    httpd_suppress_version_string on
+    connect_timeout 30 seconds
+    read_timeout 300 seconds
+    forwarded_for delete
+  allowed_hosts.txt: |
+    pypi.org
+    files.pythonhosted.org
+    registry.npmjs.org
+    cdn.jsdelivr.net

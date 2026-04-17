@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fireseed-squid
+  namespace: {{ include "fireseed.namespace" . }}
+  labels:
+    app: fireseed-squid
+    {{- include "fireseed.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: fireseed-squid
+  template:
+    metadata:
+      labels:
+        app: fireseed-squid
+    spec:
+{{- include "fireseed.imagePullSecrets" . }}
+      containers:
+        - name: squid
+          image: {{ include "fireseed.image" (dict "global" .Values.global "name" "fireseed-squid") }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy | default "IfNotPresent" }}
+          ports:
+            - containerPort: 3128
+          volumeMounts:
+            - name: config
+              mountPath: /etc/squid/squid.conf
+              subPath: squid.conf
+            - name: config
+              mountPath: /etc/squid/allowed_hosts.txt
+              subPath: allowed_hosts.txt
+          readinessProbe:
+            tcpSocket:
+              port: 3128
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+      volumes:
+        - name: config
+          configMap:
+            name: fireseed-squid-config

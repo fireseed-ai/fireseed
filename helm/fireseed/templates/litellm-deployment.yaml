@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fireseed-litellm
+  namespace: {{ include "fireseed.namespace" . }}
+  labels:
+    app: fireseed-litellm
+    {{- include "fireseed.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: fireseed-litellm
+  template:
+    metadata:
+      labels:
+        app: fireseed-litellm
+    spec:
+{{- include "fireseed.imagePullSecrets" . }}
+      containers:
+        - name: litellm
+          image: {{ include "fireseed.image" (dict "global" .Values.global "name" "fireseed-litellm") }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy | default "IfNotPresent" }}
+          ports:
+            - containerPort: 4000
+          env:
+            - name: AWS_BEARER_TOKEN_BEDROCK
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "fireseed.secretName" $ }}
+                  key: aws-bearer-token
+          volumeMounts:
+            - name: config
+              mountPath: /app/config.yaml
+              subPath: config.yaml
+          readinessProbe:
+            httpGet:
+              path: /health/readiness
+              port: 4000
+              httpHeaders:
+                - name: Authorization
+                  value: "Bearer sk-fireseed-master-key"
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health/liveliness
+              port: 4000
+              httpHeaders:
+                - name: Authorization
+                  value: "Bearer sk-fireseed-master-key"
+            initialDelaySeconds: 20
+            periodSeconds: 15
+      volumes:
+        - name: config
+          configMap:
+            name: fireseed-litellm-config

@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: fireseed-api
+  namespace: {{ include "fireseed.namespace" . }}
+  labels:
+    app: fireseed-api
+    {{- include "fireseed.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - port: {{ .Values.api.port }}
+      targetPort: {{ .Values.api.port }}
+  selector:
+    app: fireseed-api

@@ -1,0 +1,6 @@
+apiVersion: v2
+name: fireseed
+description: Fireseed - Internal vibe coding platform
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

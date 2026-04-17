@@ -1,0 +1,68 @@
+{{- if .Values.postgres.backup.enabled }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: fireseed-postgres-backup
+  namespace: {{ include "fireseed.namespace" . }}
+  labels:
+    app: fireseed-postgres-backup
+    {{- include "fireseed.labels" . | nindent 4 }}
+spec:
+  schedule: "0 */6 * * *"  # Every 6 hours
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: backup
+              image: postgres:16
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+                  BACKUP_FILE="/backups/fireseed-${TIMESTAMP}.sql.gz"
+                  echo "Starting backup to ${BACKUP_FILE}..."
+                  PGPASSWORD="${POSTGRES_PASSWORD}" pg_dump -h fireseed-postgres -U "${POSTGRES_USER}" "${POSTGRES_DB}" | gzip > "${BACKUP_FILE}"
+                  echo "Backup complete: $(du -h ${BACKUP_FILE} | cut -f1)"
+                  # Keep last 20 backups, delete older ones
+                  ls -t /backups/*.sql.gz 2>/dev/null | tail -n +21 | xargs rm -f 2>/dev/null
+                  echo "Cleanup done. Backups on disk:"
+                  ls -lh /backups/*.sql.gz 2>/dev/null
+              env:
+                - name: POSTGRES_USER
+                  value: {{ .Values.postgres.user | quote }}
+                - name: POSTGRES_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ include "fireseed.secretName" $ }}
+                      key: postgres-password
+                - name: POSTGRES_DB
+                  value: {{ .Values.postgres.database | quote }}
+              volumeMounts:
+                - name: backup-storage
+                  mountPath: /backups
+          volumes:
+            - name: backup-storage
+              persistentVolumeClaim:
+                claimName: fireseed-postgres-backups
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: fireseed-postgres-backups
+  namespace: {{ include "fireseed.namespace" . }}
+  labels:
+    {{- include "fireseed.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+
+{{- end }}

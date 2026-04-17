@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: fireseed-browser-headless
+  namespace: {{ include "fireseed.namespace" . }}
+  labels:
+    app: fireseed-browser
+    {{- include "fireseed.labels" . | nindent 4 }}
+spec:
+  clusterIP: None
+  ports:
+    - port: {{ .Values.browser.port }}
+      targetPort: {{ .Values.browser.port }}
+  selector:
+    app: fireseed-browser

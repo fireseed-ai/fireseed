@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fireseed-ui
+  namespace: {{ include "fireseed.namespace" . }}
+  labels:
+    app: fireseed-ui
+    {{- include "fireseed.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.ui.replicas }}
+  selector:
+    matchLabels:
+      app: fireseed-ui
+  template:
+    metadata:
+      labels:
+        app: fireseed-ui
+    spec:
+{{- include "fireseed.imagePullSecrets" . }}
+      containers:
+        - name: ui
+          image: {{ include "fireseed.image" (dict "global" .Values.global "name" "fireseed-ui") }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy | default "IfNotPresent" }}
+          ports:
+            - containerPort: {{ .Values.ui.port }}
+          env:
+            - name: VITE_API_URL
+              value: "http://fireseed-api:{{ .Values.api.port }}"
+          readinessProbe:
+            httpGet:
+              path: /
+              port: {{ .Values.ui.port }}
+            initialDelaySeconds: 10
+            periodSeconds: 5

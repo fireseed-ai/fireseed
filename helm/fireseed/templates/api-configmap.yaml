@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fireseed-api-config
+  namespace: {{ include "fireseed.namespace" . }}
+  labels:
+    app: fireseed-api
+    {{- include "fireseed.labels" . | nindent 4 }}
+data:
+  POSTGRES_HOST: {{ .Values.api.env.POSTGRES_HOST | quote }}
+  POSTGRES_PORT: {{ .Values.api.env.POSTGRES_PORT | quote }}
+  POSTGRES_USER: {{ .Values.api.env.POSTGRES_USER | quote }}
+  POSTGRES_DB: {{ .Values.api.env.POSTGRES_DB | quote }}
+  BASE_DOMAIN: {{ .Values.baseDomain | quote }}

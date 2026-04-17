@@ -1,0 +1,87 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fireseed-api
+  namespace: {{ include "fireseed.namespace" . }}
+  labels:
+    app: fireseed-api
+    {{- include "fireseed.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.api.replicas }}
+  selector:
+    matchLabels:
+      app: fireseed-api
+  template:
+    metadata:
+      labels:
+        app: fireseed-api
+    spec:
+{{- include "fireseed.imagePullSecrets" . }}
+      serviceAccountName: fireseed-operator
+      containers:
+        - name: api
+          image: {{ include "fireseed.image" (dict "global" .Values.global "name" "fireseed-api") }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy | default "IfNotPresent" }}
+          ports:
+            - containerPort: {{ .Values.api.port }}
+          envFrom:
+            - configMapRef:
+                name: fireseed-api-config
+          env:
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "fireseed.secretName" $ }}
+                  key: postgres-password
+            - name: AWS_BEARER_TOKEN_BEDROCK
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "fireseed.secretName" $ }}
+                  key: aws-bearer-token
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "fireseed.secretName" $ }}
+                  key: secret-key
+            - name: REDIS_URL
+              value: "redis://fireseed-redis:6379/0"
+            - name: FIRECRAWL_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "fireseed.secretName" $ }}
+                  key: firecrawl-api-key
+                  optional: true
+            - name: LITELLM_URL
+              value: "http://fireseed-litellm:4000"
+            - name: LITELLM_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "fireseed.secretName" $ }}
+                  key: litellm-key
+            - name: SERVICE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "fireseed.secretName" $ }}
+                  key: service-token
+            - name: ADMIN_EMAIL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "fireseed.secretName" $ }}
+                  key: admin-email
+            - name: ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "fireseed.secretName" $ }}
+                  key: admin-password
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: {{ .Values.api.port }}
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: {{ .Values.api.port }}
+            initialDelaySeconds: 15
+            periodSeconds: 10
