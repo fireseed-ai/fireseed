@@ -1,26 +1,72 @@
-namespace: fireseed-system
+# Install namespace. If unset, the release namespace (helm -n <ns>) is used.
+namespace: ""
 
-# Base domain for the platform and app subdomains
-# Platform: local.fireseed.dev, Apps: {subdomain}.local.fireseed.dev
-baseDomain: local.fireseed.dev
+# Base domain for the platform. Apps provisioned through the operator get a
+# {subdomain}.{baseDomain} URL via the platform ingress.
+baseDomain: ""
 
-# Container registry — override for production
+# ─────────────────────────────────────────────────────────────
+# Secrets
+# ─────────────────────────────────────────────────────────────
+# The chart does NOT create or manage a Secret for you — that keeps sensitive
+# values out of your values.yaml and your git history. Create a Secret in the
+# install namespace with the keys below and set existingSecret to its name.
+#
+# Required keys:
+#   postgres-password  — password for the bundled PostgreSQL user
+#   aws-bearer-token   — AWS Bedrock API token (Claude)
+#   secret-key         — JWT signing key (≥32 chars) + project-token HMAC
+#   litellm-key        — LiteLLM master key (sk-…)
+#   service-token      — internal service-to-service auth token
+#   admin-email        — bootstrap admin user email
+#   admin-password     — bootstrap admin user password
+#
+# Optional keys:
+#   firecrawl-api-key  — enables web_search tool
+#
+# See examples/secret.yaml and examples/externalsecret.yaml in the repo.
+existingSecret: ""
+
+# ─────────────────────────────────────────────────────────────
+# Container images
+# ─────────────────────────────────────────────────────────────
 global:
   registry: docker.io/fireseeddev
   imagePullPolicy: IfNotPresent
-  tag: latest
+  tag: ""  # defaults to .Chart.AppVersion when empty
   imagePullSecrets: []
 
+# ─────────────────────────────────────────────────────────────
+# Postgres (bundled)
+# ─────────────────────────────────────────────────────────────
 postgres:
   image: postgres:16
   user: fireseed
-  password: fireseed  # CHANGE IN PRODUCTION
   database: fireseed
   storage: 5Gi
   port: 5432
   backup:
     enabled: true
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
 
+redis:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+
+# ─────────────────────────────────────────────────────────────
+# Platform services
+# ─────────────────────────────────────────────────────────────
 api:
   replicas: 1
   port: 8000
@@ -28,45 +74,82 @@ api:
     POSTGRES_HOST: fireseed-postgres
     POSTGRES_PORT: "5432"
     POSTGRES_USER: fireseed
-    POSTGRES_PASSWORD: fireseed
     POSTGRES_DB: fireseed
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
 
 ui:
   replicas: 1
   port: 3000
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
 
 operator:
   replicas: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
 
 litellm:
   replicas: 1
   port: 4000
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
 
 browser:
   replicas: 2
   port: 9222
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
 
 squid:
   replicas: 1
   port: 3128
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
 
+# ─────────────────────────────────────────────────────────────
+# Ingress
+# ─────────────────────────────────────────────────────────────
 ingress:
   enabled: true
-  className: traefik
-  host: local.fireseed.dev  # Leave empty for hostless ingress (e.g. Tailscale)
-  tls: true
-  tlsSecretName: fireseed-wildcard-tls
+  # Leave className empty to use the cluster's default IngressClass.
+  className: ""
+  # Host for the platform ingress. Leave empty for hostless ingresses
+  # (e.g. when using the Tailscale operator's own hostname).
+  host: ""
+  tls: false
+  tlsSecretName: ""
+  # Extra hosts for the tls.hosts list. The Tailscale operator reads
+  # the desired node hostname from tls[0].hosts[0].
+  tlsHosts: []
   annotations: {}
-
-# Set to use a pre-existing secret (e.g. from External Secrets Operator)
-# When set, the chart skips creating its own secret and uses this one instead.
-# The secret must contain keys: postgres-password, aws-bearer-token, secret-key,
-#   litellm-key, service-token, admin-email, admin-password
-existingSecret: ""
-
-awsBearerToken: ""
-secretKey: ""  # Auto-generated on first install if empty
-litellmKey: "sk-fireseed-master-key"  # CHANGE IN PRODUCTION
-adminEmail: ""  # First admin user email (set for first install)
-adminPassword: ""  # First admin user password (set for first install)
-firecrawlApiKey: ""  # Optional — enables web_search tool for the AI agent

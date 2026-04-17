@@ -19,7 +19,7 @@ spec:
 {{- include "fireseed.imagePullSecrets" . }}
       containers:
         - name: litellm
-          image: {{ include "fireseed.image" (dict "global" .Values.global "name" "fireseed-litellm") }}
+          image: {{ include "fireseed.image" (dict "global" .Values.global "name" "fireseed-litellm" "chart" .Chart) }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy | default "IfNotPresent" }}
           ports:
             - containerPort: 4000
@@ -29,28 +29,32 @@ spec:
                 secretKeyRef:
                   name: {{ include "fireseed.secretName" $ }}
                   key: aws-bearer-token
+            - name: LITELLM_MASTER_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "fireseed.secretName" $ }}
+                  key: litellm-key
           volumeMounts:
             - name: config
               mountPath: /app/config.yaml
               subPath: config.yaml
+          # /health/liveliness and /health/readiness on LiteLLM require
+          # master-key auth; use a plain TCP probe instead so the probe
+          # doesn't have to carry the secret.
           readinessProbe:
-            httpGet:
-              path: /health/readiness
+            tcpSocket:
               port: 4000
-              httpHeaders:
-                - name: Authorization
-                  value: "Bearer sk-fireseed-master-key"
             initialDelaySeconds: 15
             periodSeconds: 10
           livenessProbe:
-            httpGet:
-              path: /health/liveliness
+            tcpSocket:
               port: 4000
-              httpHeaders:
-                - name: Authorization
-                  value: "Bearer sk-fireseed-master-key"
             initialDelaySeconds: 20
             periodSeconds: 15
+          {{- with .Values.litellm.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
       volumes:
         - name: config
           configMap:

@@ -3,7 +3,8 @@ kind: CustomResourceDefinition
 metadata:
   name: fireseedapps.fireseed.internal
   labels:
-    {{- include "fireseed.labels" . | nindent 4 }}
+    app.kubernetes.io/managed-by: helm
+    app.kubernetes.io/part-of: fireseed
 spec:
   group: fireseed.internal
   versions:

@@ -1,3 +1,9 @@
+{{- $appNs := "fireseed-apps" -}}
+
+# ─────────────────────────────────────────────────────────────
+# Operator — cluster-wide power to create/delete child resources
+# across namespaces for every FireseedApp CR it reconciles.
+# ─────────────────────────────────────────────────────────────
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -48,4 +54,102 @@ subjects:
 roleRef:
   kind: ClusterRole
   name: fireseed-operator
+  apiGroup: rbac.authorization.k8s.io
+
+# ─────────────────────────────────────────────────────────────
+# API — scoped to fireseed-apps (CR + pod access) and the platform
+# namespace (configmap/deployment patch for the Squid allowlist).
+# Deliberately no cluster-wide rights: a compromised API pod should
+# not be able to create arbitrary resources anywhere in the cluster.
+# ─────────────────────────────────────────────────────────────
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: fireseed-api
+  namespace: {{ include "fireseed.namespace" . }}
+  labels:
+    {{- include "fireseed.labels" . | nindent 4 }}
+---
+# App-namespace scope: manage FireseedApp CRs + observe pods/ingresses
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: fireseed-api-apps
+  namespace: {{ $appNs }}
+  labels:
+    {{- include "fireseed.labels" . | nindent 4 }}
+rules:
+  - apiGroups: ["fireseed.internal"]
+    resources: ["fireseedapps", "fireseedapps/status"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get"]
+  - apiGroups: [""]
+    resources: ["pods/exec"]
+    verbs: ["create", "get"]
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["services"]
+    verbs: ["get", "list"]
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: fireseed-api-apps
+  namespace: {{ $appNs }}
+  labels:
+    {{- include "fireseed.labels" . | nindent 4 }}
+subjects:
+  - kind: ServiceAccount
+    name: fireseed-api
+    namespace: {{ include "fireseed.namespace" . }}
+roleRef:
+  kind: Role
+  name: fireseed-api-apps
+  apiGroup: rbac.authorization.k8s.io
+---
+# Platform-namespace scope: update the Squid allowlist configmap and
+# trigger a rolling restart of the squid deployment.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: fireseed-api-platform
+  namespace: {{ include "fireseed.namespace" . }}
+  labels:
+    {{- include "fireseed.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "update", "patch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: fireseed-api-platform
+  namespace: {{ include "fireseed.namespace" . }}
+  labels:
+    {{- include "fireseed.labels" . | nindent 4 }}
+subjects:
+  - kind: ServiceAccount
+    name: fireseed-api
+    namespace: {{ include "fireseed.namespace" . }}
+roleRef:
+  kind: Role
+  name: fireseed-api-platform
   apiGroup: rbac.authorization.k8s.io

@@ -30,6 +30,6 @@ data:
           aws_region_name: us-west-2
           aws_bedrock_api_key: os.environ/AWS_BEARER_TOKEN_BEDROCK
     general_settings:
-      master_key: sk-fireseed-master-key
+      master_key: os.environ/LITELLM_MASTER_KEY
     litellm_settings:
       drop_params: true

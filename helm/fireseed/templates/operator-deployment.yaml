@@ -20,7 +20,7 @@ spec:
       serviceAccountName: fireseed-operator
       containers:
         - name: operator
-          image: {{ include "fireseed.image" (dict "global" .Values.global "name" "fireseed-operator") }}
+          image: {{ include "fireseed.image" (dict "global" .Values.global "name" "fireseed-operator" "chart" .Chart) }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy | default "IfNotPresent" }}
           env:
             - name: FIRESEED_API_URL
@@ -30,11 +30,11 @@ spec:
             - name: IMAGE_PULL_POLICY
               value: {{ .Values.global.imagePullPolicy | default "IfNotPresent" | quote }}
             - name: IMAGE_BASE_PYTHON
-              value: {{ include "fireseed.image" (dict "global" .Values.global "name" "fireseed-base-python") | quote }}
+              value: {{ include "fireseed.image" (dict "global" .Values.global "name" "fireseed-base-python" "chart" .Chart) | quote }}
             - name: IMAGE_BASE_NODE
-              value: {{ include "fireseed.image" (dict "global" .Values.global "name" "fireseed-base-node") | quote }}
+              value: {{ include "fireseed.image" (dict "global" .Values.global "name" "fireseed-base-node" "chart" .Chart) | quote }}
             - name: IMAGE_FILE_SYNC
-              value: {{ include "fireseed.image" (dict "global" .Values.global "name" "fireseed-file-sync") | quote }}
+              value: {{ include "fireseed.image" (dict "global" .Values.global "name" "fireseed-file-sync" "chart" .Chart) | quote }}
             - name: SECRET_KEY
               valueFrom:
                 secretKeyRef:
@@ -54,3 +54,7 @@ spec:
               value: {{ .Values.postgres.user | quote }}
             - name: POSTGRES_DB
               value: {{ .Values.postgres.database | quote }}
+          {{- with .Values.operator.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}

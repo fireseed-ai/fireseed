@@ -19,7 +19,7 @@ spec:
 {{- include "fireseed.imagePullSecrets" . }}
       containers:
         - name: squid
-          image: {{ include "fireseed.image" (dict "global" .Values.global "name" "fireseed-squid") }}
+          image: {{ include "fireseed.image" (dict "global" .Values.global "name" "fireseed-squid" "chart" .Chart) }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy | default "IfNotPresent" }}
           ports:
             - containerPort: 3128
@@ -35,13 +35,10 @@ spec:
               port: 3128
             initialDelaySeconds: 5
             periodSeconds: 10
+          {{- with .Values.squid.resources }}
           resources:
-            requests:
-              cpu: 50m
-              memory: 64Mi
-            limits:
-              cpu: 200m
-              memory: 256Mi
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
       volumes:
         - name: config
           configMap:

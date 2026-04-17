@@ -17,10 +17,10 @@ spec:
         app: fireseed-api
     spec:
 {{- include "fireseed.imagePullSecrets" . }}
-      serviceAccountName: fireseed-operator
+      serviceAccountName: fireseed-api
       containers:
         - name: api
-          image: {{ include "fireseed.image" (dict "global" .Values.global "name" "fireseed-api") }}
+          image: {{ include "fireseed.image" (dict "global" .Values.global "name" "fireseed-api" "chart" .Chart) }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy | default "IfNotPresent" }}
           ports:
             - containerPort: {{ .Values.api.port }}
@@ -85,3 +85,7 @@ spec:
               port: {{ .Values.api.port }}
             initialDelaySeconds: 15
             periodSeconds: 10
+          {{- with .Values.api.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}

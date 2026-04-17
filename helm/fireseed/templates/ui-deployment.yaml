@@ -19,7 +19,7 @@ spec:
 {{- include "fireseed.imagePullSecrets" . }}
       containers:
         - name: ui
-          image: {{ include "fireseed.image" (dict "global" .Values.global "name" "fireseed-ui") }}
+          image: {{ include "fireseed.image" (dict "global" .Values.global "name" "fireseed-ui" "chart" .Chart) }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy | default "IfNotPresent" }}
           ports:
             - containerPort: {{ .Values.ui.port }}
@@ -32,3 +32,7 @@ spec:
               port: {{ .Values.ui.port }}
             initialDelaySeconds: 10
             periodSeconds: 5
+          {{- with .Values.ui.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}

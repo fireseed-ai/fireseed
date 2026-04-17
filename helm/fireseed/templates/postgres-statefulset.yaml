@@ -40,6 +40,10 @@ spec:
               command: ["pg_isready", "-U", "{{ .Values.postgres.user }}"]
             initialDelaySeconds: 5
             periodSeconds: 5
+          {{- with .Values.postgres.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
   volumeClaimTemplates:
     - metadata:
         name: postgres-data
