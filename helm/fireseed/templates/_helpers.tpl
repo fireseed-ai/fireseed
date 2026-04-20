@@ -13,11 +13,12 @@ app.kubernetes.io/part-of: fireseed
 
 {{/*
 Build image reference: registry/name:tag. The tag falls back to the
-chart's appVersion so each chart release pins its matching image tag.
+chart version so bumping Chart.yaml's `version` drives both the chart
+release and the image tag — no parallel appVersion to keep in sync.
 */}}
 {{- define "fireseed.image" -}}
 {{- $registry := .global.registry | default "" -}}
-{{- $tag := .global.tag | default .chart.AppVersion | default "latest" -}}
+{{- $tag := .global.tag | default .chart.Version | default "latest" -}}
 {{- if $registry -}}
 {{ $registry }}/{{ .name }}:{{ $tag }}
 {{- else -}}

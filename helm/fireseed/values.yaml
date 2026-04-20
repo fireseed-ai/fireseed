@@ -32,7 +32,7 @@ existingSecret: ""
 global:
   registry: docker.io/fireseeddev
   imagePullPolicy: IfNotPresent
-  tag: ""  # defaults to .Chart.AppVersion when empty
+  tag: ""  # defaults to .Chart.Version when empty
   imagePullSecrets: []
 
 # ─────────────────────────────────────────────────────────────

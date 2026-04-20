@@ -4,3 +4,7 @@ metadata:
   name: fireseed-apps
   labels:
     {{- include "fireseed.labels" . | nindent 4 }}
+    # Tells the shared operator which platform API serves this app
+    # namespace. Demo sets its own fireseed-demo-apps with
+    # fireseed.dev/platform=fireseed-demo.
+    fireseed.dev/platform: {{ include "fireseed.namespace" . }}

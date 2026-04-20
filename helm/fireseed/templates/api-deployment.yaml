@@ -8,6 +8,14 @@ metadata:
     {{- include "fireseed.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.api.replicas }}
+  # Recreate — kill the old pod before starting the new one. At
+  # replicas=1 the default RollingUpdate + readinessProbe combo
+  # leaves a stuck rollout if a new image fails to become Ready:
+  # the failed pod occupies the surge slot and subsequent helm
+  # upgrades can't advance. Recreate is the simpler, self-healing
+  # strategy for a single-replica control-plane pod.
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: fireseed-api

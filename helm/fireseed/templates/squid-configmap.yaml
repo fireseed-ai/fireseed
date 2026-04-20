@@ -13,6 +13,19 @@ data:
     acl Safe_ports port 80
     acl Safe_ports port 443
     acl CONNECT method CONNECT
+    # Defense-in-depth: block IP-literal URLs and destinations that
+    # resolve into private / link-local / loopback ranges. Catches
+    # DNS-rebinding attacks against allowlisted domains and any
+    # future allowlist drift that permits IP URLs.
+    acl ip_literal_url dstdom_regex -i ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$
+    acl localnet dst 10.0.0.0/8
+    acl localnet dst 172.16.0.0/12
+    acl localnet dst 192.168.0.0/16
+    acl localnet dst 169.254.0.0/16
+    acl localnet dst 127.0.0.0/8
+    acl localnet dst ::1/128
+    http_access deny ip_literal_url
+    http_access deny localnet
     http_access allow CONNECT fireseed_allowed SSL_ports
     http_access allow fireseed_allowed Safe_ports
     http_access deny all
