@@ -27,6 +27,14 @@ spec:
           env:
             - name: VITE_API_URL
               value: "http://fireseed-api:{{ .Values.api.port }}"
+            {{- with .Values.ui.gaId }}
+            - name: FIRESEED_GA_ID
+              value: {{ . | quote }}
+            {{- end }}
+            {{- with .Values.ui.consentCookieDomain }}
+            - name: FIRESEED_CONSENT_COOKIE_DOMAIN
+              value: {{ . | quote }}
+            {{- end }}
           readinessProbe:
             httpGet:
               path: /

@@ -16,6 +16,7 @@ spec:
   # strategy for a single-replica control-plane pod.
   strategy:
     type: Recreate
+    rollingUpdate: null
   selector:
     matchLabels:
       app: fireseed-api
