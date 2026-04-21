@@ -5,13 +5,11 @@ description: |
   English; Fireseed writes the code, builds the containers, and runs them
   on your Kubernetes cluster.
 type: application
-version: 1.0.16
-
+version: 1.0.18
 home: https://fireseed.dev
 icon: https://fireseed.dev/logo.svg
 sources:
   - https://github.com/fireseed-ai/fireseed
-
 keywords:
   - ai
   - llm
@@ -20,11 +18,9 @@ keywords:
   - platform
   - application-platform
   - kubernetes-operator
-
 maintainers:
   - name: Fireseed
     url: https://fireseed.dev
-
 annotations:
   artifacthub.io/category: integration-delivery
   artifacthub.io/license: Apache-2.0
