@@ -5,7 +5,7 @@ description: |
   English; Fireseed writes the code, builds the containers, and runs them
   on your Kubernetes cluster.
 type: application
-version: 1.0.25
+version: 1.0.26
 home: https://fireseed.dev
 icon: https://fireseed.dev/logo.svg
 sources:
