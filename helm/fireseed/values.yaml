@@ -114,7 +114,9 @@ api:
       cpu: 200m
       memory: 512Mi
     limits:
-      cpu: 1000m
+      # 2000m so a screenshot burst (17+ concurrent SELECTs + response
+      # writes in one event loop) isn't throttled at the CPU ceiling.
+      cpu: 2000m
       memory: 1Gi
 
 ui:

@@ -20,8 +20,6 @@ spec:
               properties:
                 projectId:
                   type: string
-                version:
-                  type: integer
                 subdomain:
                   type: string
                 fireseedApiUrl:
