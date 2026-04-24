@@ -19,6 +19,11 @@ data:
           model: bedrock/us.anthropic.claude-opus-4-6
           aws_region_name: us-west-2
           aws_bedrock_api_key: os.environ/AWS_BEARER_TOKEN_BEDROCK
+      - model_name: claude-opus-4-7
+        litellm_params:
+          model: bedrock/global.anthropic.claude-opus-4-7
+          aws_region_name: us-west-2
+          aws_bedrock_api_key: os.environ/AWS_BEARER_TOKEN_BEDROCK
       - model_name: claude-3-5-sonnet
         litellm_params:
           model: bedrock/anthropic.claude-3-5-sonnet-20241022-v2:0
