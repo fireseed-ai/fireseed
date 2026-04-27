@@ -1,4 +1,4 @@
-{{- if .Values.gitSync.enabled }}
+{{- if (default (dict) .Values.gitSync).enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
