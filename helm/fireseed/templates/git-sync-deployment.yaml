@@ -32,6 +32,16 @@ spec:
           # All git config (repo URL, branch, credentials, author) lives
           # in the platform DB and is fetched from /api/internal/git-sync/config.
           # Configure it from the admin UI under "Git Sync".
+          envFrom:
+            # Same ConfigMap the API consumes — it carries POSTGRES_HOST/
+            # PORT/USER/DB resolved through the chart's external-vs-bundled
+            # helpers. Sharing it means a downstream override (e.g. an
+            # admission webhook injecting an RDS endpoint into the API)
+            # automatically applies to git-sync's LISTEN connection too.
+            # Without this, git-sync hardcoded fireseed-postgres and DNS
+            # failed on clusters that point the API at an external DB.
+            - configMapRef:
+                name: fireseed-api-config
           env:
             - name: FIRESEED_API_URL
               value: "http://fireseed-api:{{ .Values.api.port }}"
@@ -48,7 +58,10 @@ spec:
                   name: {{ include "fireseed.secretName" $ }}
                   key: postgres-password
             - name: PLATFORM_DATABASE_URL
-              value: "postgresql://{{ .Values.postgres.user }}:$(POSTGRES_PASSWORD)@fireseed-postgres:{{ .Values.postgres.port }}/{{ .Values.postgres.database }}"
+              # $(VAR) substitution pulls POSTGRES_HOST/USER/PORT/DB from
+              # the envFrom-imported ConfigMap above and POSTGRES_PASSWORD
+              # from the secret. k8s resolves these at container start.
+              value: "postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(POSTGRES_HOST):$(POSTGRES_PORT)/$(POSTGRES_DB)"
           readinessProbe:
             httpGet: { path: /health, port: 8080 }
             initialDelaySeconds: 5
