@@ -1,0 +1,70 @@
+{{- if .Values.gitSync.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fireseed-git-sync
+  namespace: {{ include "fireseed.namespace" . }}
+  labels:
+    app: fireseed-git-sync
+    {{- include "fireseed.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  strategy:
+    # The pod owns the single working clone + is the sole writer for
+    # the mirrored branch. Recreate (not RollingUpdate) avoids two pods
+    # briefly pushing concurrently during upgrades.
+    type: Recreate
+  selector:
+    matchLabels:
+      app: fireseed-git-sync
+  template:
+    metadata:
+      labels:
+        app: fireseed-git-sync
+    spec:
+{{- include "fireseed.imagePullSecrets" . }}
+      containers:
+        - name: git-sync
+          image: {{ include "fireseed.image" (dict "global" .Values.global "name" "fireseed-git-sync" "chart" .Chart) }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy | default "IfNotPresent" }}
+          ports:
+            - containerPort: 8080
+          # All git config (repo URL, branch, credentials, author) lives
+          # in the platform DB and is fetched from /api/internal/git-sync/config.
+          # Configure it from the admin UI under "Git Sync".
+          env:
+            - name: FIRESEED_API_URL
+              value: "http://fireseed-api:{{ .Values.api.port }}"
+            - name: REDIS_URL
+              value: "redis://fireseed-redis:6379/0"
+            - name: SERVICE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "fireseed.secretName" $ }}
+                  key: service-token
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "fireseed.secretName" $ }}
+                  key: postgres-password
+            - name: PLATFORM_DATABASE_URL
+              value: "postgresql://{{ .Values.postgres.user }}:$(POSTGRES_PASSWORD)@fireseed-postgres:{{ .Values.postgres.port }}/{{ .Values.postgres.database }}"
+          readinessProbe:
+            httpGet: { path: /health, port: 8080 }
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: { path: /health, port: 8080 }
+            initialDelaySeconds: 30
+            periodSeconds: 15
+          volumeMounts:
+            - name: worktree
+              mountPath: /var/lib/git-sync
+          {{- with .Values.gitSync.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      volumes:
+        - name: worktree
+          emptyDir: {}
+{{- end }}
