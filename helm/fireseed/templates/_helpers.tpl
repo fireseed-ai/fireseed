@@ -81,6 +81,19 @@ fireseed-postgres.{{ include "fireseed.namespace" . }}.svc.cluster.local
 {{- end -}}
 
 {{/*
+LiteLLM database name. Always `litellm` for in-cluster Postgres; for an
+external database the operator must have CREATEDB / CREATEROLE so the
+init job can provision it the same way.
+*/}}
+{{- define "fireseed.litellmDatabaseName" -}}
+litellm
+{{- end -}}
+
+{{- define "fireseed.litellmDatabaseUser" -}}
+litellm
+{{- end -}}
+
+{{/*
 Pod placement (nodeSelector / affinity / tolerations). Applied uniformly
 to every platform pod. Caller is responsible for indenting via nindent.
 */}}

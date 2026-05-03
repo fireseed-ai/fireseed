@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: fireseed-apps
+  name: {{ .Values.appNamespace | default "fireseed-apps" }}
   labels:
     {{- include "fireseed.labels" . | nindent 4 }}
     # Tells the shared operator which platform API serves this app

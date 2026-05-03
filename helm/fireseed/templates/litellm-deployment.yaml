@@ -20,21 +20,86 @@ spec:
       {{- include "fireseed.podPlacement" . | nindent 6 }}
       containers:
         - name: litellm
-          image: {{ include "fireseed.image" (dict "global" .Values.global "name" "fireseed-litellm" "chart" .Chart) }}
+          # Default to BerriAI's official upstream image. We don't
+          # rebuild + republish a fork — the previous services/litellm
+          # Dockerfile only added EXPOSE + CMD on top, so re-pushing
+          # the 295 MB base layer to Docker Hub gained us nothing and
+          # routinely 400'd the registry's blob-upload session.
+          # Pin a versioned-stable tag (per BerriAI's post-incident
+          # advisory) instead of a rolling 'main-stable' alias.
+          image: {{ .Values.litellm.image | default "ghcr.io/berriai/litellm-database:v1.83.10-stable" }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy | default "IfNotPresent" }}
           ports:
             - containerPort: 4000
           env:
-            - name: AWS_BEARER_TOKEN_BEDROCK
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "fireseed.secretName" $ }}
-                  key: aws-bearer-token
+            # No AWS_BEARER_TOKEN_BEDROCK env: the bearer lives in
+            # LiteLLM_ProxyModelTable encrypted with LITELLM_SALT_KEY,
+            # written by an admin via the LiteLLM admin UI (linked
+            # from fireseed Settings → Manage models). Rotatable
+            # from there without a redeploy.
             - name: LITELLM_MASTER_KEY
               valueFrom:
                 secretKeyRef:
                   name: {{ include "fireseed.secretName" $ }}
                   key: litellm-key
+            # Trust X-Forwarded-Proto from the Tailscale / nginx ingress
+            # so uvicorn issues redirects on the original https scheme.
+            # Without this, LiteLLM 307s to http://… and the browser
+            # refuses the downgrade with ERR_CONNECTION_REFUSED.
+            - name: FORWARDED_ALLOW_IPS
+              value: "*"
+            # /update/ui_settings persists to a DB-backed config table,
+            # gated by this flag. The configmap also sets it, but
+            # LiteLLM checks the env var as the primary source — the
+            # in-config value isn't always promoted to the runtime
+            # global.
+            - name: STORE_MODEL_IN_DB
+              value: "True"
+            {{- if .Values.litellm.database.enabled }}
+            - name: LITELLM_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "fireseed.secretName" $ }}
+                  key: litellm-db-password
+            # The $(LITELLM_DB_PASSWORD) form is k8s env-var
+            # interpolation — populated from the entry above. Keeps the
+            # cleartext password out of any rendered manifest.
+            - name: DATABASE_URL
+              value: "postgresql://{{ include "fireseed.litellmDatabaseUser" . }}:$(LITELLM_DB_PASSWORD)@{{ include "fireseed.postgresHost" . }}:{{ include "fireseed.postgresPort" . }}/{{ include "fireseed.litellmDatabaseName" . }}"
+            - name: LITELLM_SALT_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "fireseed.secretName" $ }}
+                  key: litellm-salt-key
+            {{- if .Values.litellm.ui.pathPrefix }}
+            # Tells FastAPI/uvicorn that incoming requests carry this
+            # path prefix, so links rendered in the LiteLLM UI and the
+            # OpenAPI spec base path resolve correctly behind the
+            # platform ingress at /litellm/*.
+            - name: SERVER_ROOT_PATH
+              value: {{ .Values.litellm.ui.pathPrefix | quote }}
+            {{- end }}
+            {{- if .Values.litellm.ui.requireBasicAuth }}
+            - name: UI_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "fireseed.secretName" $ }}
+                  key: litellm-ui-username
+            - name: UI_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "fireseed.secretName" $ }}
+                  key: litellm-ui-password
+            {{- end }}
+            {{- end }}
+            # OPENAI_API_KEY / GEMINI_API_KEY / ANTHROPIC_API_KEY etc
+            # are not wired here — admins enter them via the LiteLLM
+            # admin UI (Models tab) when adding a provider. With
+            # store_model_in_db=True the proxy persists both the
+            # model row and the api_key into LiteLLM_ProxyModelTable
+            # encrypted with LITELLM_SALT_KEY. A fresh cluster ships
+            # with no models and the admin adds the first one via
+            # the LiteLLM UI.
           volumeMounts:
             - name: config
               mountPath: /app/config.yaml
@@ -42,15 +107,22 @@ spec:
           # /health/liveliness and /health/readiness on LiteLLM require
           # master-key auth; use a plain TCP probe instead so the probe
           # doesn't have to carry the secret.
+          # `database.enabled` boots Prisma's auto-migration on first
+          # start which can take 60-90s. Use a startupProbe to absorb
+          # that without false-positive liveness restarts.
+          startupProbe:
+            tcpSocket:
+              port: 4000
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 60
           readinessProbe:
             tcpSocket:
               port: 4000
-            initialDelaySeconds: 15
             periodSeconds: 10
           livenessProbe:
             tcpSocket:
               port: 4000
-            initialDelaySeconds: 20
             periodSeconds: 15
           {{- with .Values.litellm.resources }}
           resources:

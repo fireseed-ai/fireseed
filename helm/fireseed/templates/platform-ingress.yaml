@@ -56,6 +56,17 @@ spec:
                 name: fireseed-api
                 port:
                   number: {{ .Values.api.port }}
+          {{- if and .Values.litellm.database.enabled .Values.litellm.ui.pathPrefix }}
+          # LiteLLM admin UI. SERVER_ROOT_PATH on the deployment makes
+          # the proxy aware of this prefix so generated URLs resolve.
+          - path: {{ .Values.litellm.ui.pathPrefix }}
+            pathType: Prefix
+            backend:
+              service:
+                name: fireseed-litellm
+                port:
+                  number: {{ .Values.litellm.port }}
+          {{- end }}
           - path: /
             pathType: Prefix
             backend:

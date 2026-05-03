@@ -1,0 +1,130 @@
+{{- if .Values.litellm.database.enabled }}
+# Idempotent provisioning of the LiteLLM database and role.
+# Runs as a Helm post-install / post-upgrade hook. Safe to re-run on
+# every upgrade — the role-creation block is wrapped in a pg_roles
+# check, and the database creation runs only when the database is
+# missing, so subsequent invocations are no-ops.
+#
+# Connects to the platform Postgres (bundled StatefulSet by default,
+# external RDS-style if postgres.external.enabled). The connecting user
+# must have CREATEDB and CREATEROLE; the bundled `fireseed` superuser
+# does, and the comment on postgres.external.user notes that RDS master
+# users do too.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fireseed-litellm-db-init
+  namespace: {{ include "fireseed.namespace" . }}
+  labels:
+    app: fireseed-litellm
+    {{- include "fireseed.labels" . | nindent 4 }}
+  annotations:
+    # pre-upgrade so the database exists before the new litellm pod
+    # tries to connect with the new DATABASE_URL. post-install hooks
+    # don't run until all resources are Ready, which never happens when
+    # the pod is crash-looping waiting for a database.
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+data:
+  init.sh: |
+    #!/usr/bin/env sh
+    set -eu
+    echo "Waiting for postgres at $PG_HOST to accept connections…"
+    for i in $(seq 1 60); do
+      if psql -h "$PG_HOST" -U "$PG_USER" -d postgres -tAc "SELECT 1" >/dev/null 2>&1; then
+        break
+      fi
+      sleep 2
+    done
+
+    LITELLM_USER="{{ include "fireseed.litellmDatabaseUser" . }}"
+    LITELLM_DB="{{ include "fireseed.litellmDatabaseName" . }}"
+
+    # psql variable substitution (`:'pw'`) works in plain statements
+    # but NOT inside DO $$ … $$ blocks — the substitution happens
+    # client-side before the dollar-quoted body is sent. Stay outside
+    # DO blocks throughout.
+    ROLE_EXISTS=$(psql -h "$PG_HOST" -U "$PG_USER" -d postgres -tAc \
+      "SELECT 1 FROM pg_catalog.pg_roles WHERE rolname='$LITELLM_USER'" || true)
+    if [ "$ROLE_EXISTS" != "1" ]; then
+      echo "Creating role '$LITELLM_USER'…"
+      psql -v ON_ERROR_STOP=1 -h "$PG_HOST" -U "$PG_USER" -d postgres \
+        -c "CREATE ROLE \"$LITELLM_USER\" WITH LOGIN"
+    fi
+
+    # Always reset the password (idempotent — keeps the DB password in
+    # sync with whatever's in the secret). psql `-v` substitution only
+    # fires for SQL read from stdin / a file, not for `-c` strings, so
+    # we send the statement via heredoc.
+    echo "Setting password for '$LITELLM_USER'…"
+    psql -v ON_ERROR_STOP=1 -v pw="$LITELLM_DB_PASSWORD" \
+         -h "$PG_HOST" -U "$PG_USER" -d postgres <<EOF
+    ALTER ROLE "$LITELLM_USER" WITH LOGIN PASSWORD :'pw';
+    EOF
+
+    DB_EXISTS=$(psql -h "$PG_HOST" -U "$PG_USER" -d postgres -tAc \
+      "SELECT 1 FROM pg_database WHERE datname='$LITELLM_DB'" || true)
+    if [ "$DB_EXISTS" != "1" ]; then
+      echo "Creating database '$LITELLM_DB'…"
+      # CREATE DATABASE can't run inside a transaction block; psql -c
+      # implicitly uses autocommit, which is what we want.
+      psql -v ON_ERROR_STOP=1 -h "$PG_HOST" -U "$PG_USER" -d postgres \
+        -c "CREATE DATABASE \"$LITELLM_DB\" OWNER \"$LITELLM_USER\""
+    fi
+
+    echo "Done."
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: fireseed-litellm-db-init
+  namespace: {{ include "fireseed.namespace" . }}
+  labels:
+    app: fireseed-litellm
+    {{- include "fireseed.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-4"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 5
+  ttlSecondsAfterFinished: 600
+  template:
+    metadata:
+      labels:
+        app: fireseed-litellm-db-init
+    spec:
+      {{- include "fireseed.podPlacement" . | nindent 6 }}
+{{- include "fireseed.imagePullSecrets" . }}
+      restartPolicy: OnFailure
+      containers:
+        - name: init
+          image: postgres:16
+          command: ["/bin/sh", "/scripts/init.sh"]
+          env:
+            - name: PG_HOST
+              value: {{ include "fireseed.postgresHost" . | quote }}
+            - name: PG_USER
+              value: {{ include "fireseed.postgresUser" . | quote }}
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "fireseed.secretName" $ }}
+                  key: postgres-password
+            - name: PGCONNECT_TIMEOUT
+              value: "10"
+            - name: LITELLM_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "fireseed.secretName" $ }}
+                  key: litellm-db-password
+          volumeMounts:
+            - name: scripts
+              mountPath: /scripts
+      volumes:
+        - name: scripts
+          configMap:
+            name: fireseed-litellm-db-init
+            defaultMode: 0755
+{{- end }}

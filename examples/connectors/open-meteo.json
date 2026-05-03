@@ -1,0 +1,118 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Open-Meteo Weather",
+    "version": "1.0.0",
+    "description": "Public weather forecast + historical-data API. No auth, no key, no rate-limit gating for non-commercial use. Source: https://open-meteo.com\n\nA more practical demo connector than cat facts — use this for weather-app builds (current conditions, hourly forecast, daily summary)."
+  },
+  "servers": [
+    {"url": "https://api.open-meteo.com/v1"}
+  ],
+  "paths": {
+    "/forecast": {
+      "get": {
+        "summary": "Forecast for a lat/lon point",
+        "description": "Returns one or more time series for a coordinate. Pick variables via the `current`, `hourly`, and `daily` query params (comma-separated).",
+        "parameters": [
+          {
+            "name": "latitude",
+            "in": "query",
+            "required": true,
+            "description": "Decimal latitude. Negative for southern hemisphere.",
+            "schema": {"type": "number"}
+          },
+          {
+            "name": "longitude",
+            "in": "query",
+            "required": true,
+            "description": "Decimal longitude. Negative for western hemisphere.",
+            "schema": {"type": "number"}
+          },
+          {
+            "name": "current",
+            "in": "query",
+            "description": "Comma-separated current variables, e.g. `temperature_2m,wind_speed_10m,is_day,weather_code`.",
+            "schema": {"type": "string"}
+          },
+          {
+            "name": "hourly",
+            "in": "query",
+            "description": "Comma-separated hourly variables, e.g. `temperature_2m,precipitation,wind_speed_10m`.",
+            "schema": {"type": "string"}
+          },
+          {
+            "name": "daily",
+            "in": "query",
+            "description": "Comma-separated daily variables, e.g. `temperature_2m_max,temperature_2m_min,precipitation_sum`.",
+            "schema": {"type": "string"}
+          },
+          {
+            "name": "timezone",
+            "in": "query",
+            "description": "IANA timezone (or `auto`) for the timestamps in the response.",
+            "schema": {"type": "string", "default": "auto"}
+          },
+          {
+            "name": "forecast_days",
+            "in": "query",
+            "description": "How many days of forecast to return (1-16).",
+            "schema": {"type": "integer", "default": 7}
+          },
+          {
+            "name": "temperature_unit",
+            "in": "query",
+            "schema": {"type": "string", "enum": ["celsius", "fahrenheit"], "default": "celsius"}
+          },
+          {
+            "name": "wind_speed_unit",
+            "in": "query",
+            "schema": {"type": "string", "enum": ["kmh", "ms", "mph", "kn"], "default": "kmh"}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Forecast.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "latitude": {"type": "number"},
+                    "longitude": {"type": "number"},
+                    "timezone": {"type": "string"},
+                    "current": {
+                      "type": "object",
+                      "additionalProperties": true,
+                      "description": "Variables requested via `current=`, plus a `time` field."
+                    },
+                    "hourly": {
+                      "type": "object",
+                      "additionalProperties": true,
+                      "description": "Variables requested via `hourly=`, each as a parallel array. Includes a `time` array of ISO timestamps."
+                    },
+                    "daily": {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  }
+                },
+                "example": {
+                  "latitude": 51.51,
+                  "longitude": -0.13,
+                  "timezone": "Europe/London",
+                  "current": {
+                    "time": "2026-05-03T07:00",
+                    "temperature_2m": 11.4,
+                    "wind_speed_10m": 8.6,
+                    "weather_code": 3,
+                    "is_day": 1
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

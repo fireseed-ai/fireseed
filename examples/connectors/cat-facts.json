@@ -1,0 +1,120 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Cat Facts",
+    "version": "1.0.0",
+    "description": "Public cat-fact API. No auth, no rate-limit gating. Source: https://catfact.ninja\n\nGreat first connector for verifying the no-auth proxy path end-to-end."
+  },
+  "servers": [
+    {"url": "https://catfact.ninja"}
+  ],
+  "paths": {
+    "/fact": {
+      "get": {
+        "summary": "Random cat fact",
+        "description": "One fact per call.",
+        "parameters": [
+          {
+            "name": "max_length",
+            "in": "query",
+            "description": "Maximum fact length in characters.",
+            "schema": {"type": "integer"}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "fact": {"type": "string"},
+                    "length": {"type": "integer"}
+                  }
+                },
+                "example": {
+                  "fact": "Cats can rotate their ears 180 degrees.",
+                  "length": 38
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/facts": {
+      "get": {
+        "summary": "Paginated cat facts",
+        "parameters": [
+          {"name": "limit", "in": "query", "schema": {"type": "integer", "default": 10}},
+          {"name": "max_length", "in": "query", "schema": {"type": "integer"}},
+          {"name": "page", "in": "query", "schema": {"type": "integer", "default": 1}}
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "fact": {"type": "string"},
+                          "length": {"type": "integer"}
+                        }
+                      }
+                    },
+                    "total": {"type": "integer"},
+                    "current_page": {"type": "integer"},
+                    "per_page": {"type": "integer"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/breeds": {
+      "get": {
+        "summary": "Paginated cat breeds",
+        "parameters": [
+          {"name": "limit", "in": "query", "schema": {"type": "integer", "default": 10}},
+          {"name": "page", "in": "query", "schema": {"type": "integer", "default": 1}}
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "breed": {"type": "string"},
+                          "country": {"type": "string"},
+                          "origin": {"type": "string"},
+                          "coat": {"type": "string"},
+                          "pattern": {"type": "string"}
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

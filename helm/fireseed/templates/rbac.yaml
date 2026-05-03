@@ -1,4 +1,4 @@
-{{- $appNs := "fireseed-apps" -}}
+{{- $appNs := .Values.appNamespace | default "fireseed-apps" -}}
 
 # ─────────────────────────────────────────────────────────────
 # Operator — cluster-wide power to create/delete child resources
@@ -57,7 +57,7 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
 
 # ─────────────────────────────────────────────────────────────
-# API — scoped to fireseed-apps (CR + pod access) and the platform
+# API — scoped to {{ $appNs }} (CR + pod access) and the platform
 # namespace (configmap/deployment patch for the Squid allowlist).
 # Deliberately no cluster-wide rights: a compromised API pod should
 # not be able to create arbitrary resources anywhere in the cluster.

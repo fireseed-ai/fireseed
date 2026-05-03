@@ -14,14 +14,22 @@ baseDomain: ""
 #
 # Required keys:
 #   postgres-password  — password for the bundled PostgreSQL user
-#   aws-bearer-token   — AWS Bedrock API token (Claude)
 #   secret-key         — JWT signing key (≥32 chars) + project-token HMAC
 #   litellm-key        — LiteLLM master key (sk-…)
 #   service-token      — internal service-to-service auth token
 #   admin-password     — bootstrap admin user password (user is admin@internal)
+#   litellm-db-password — password for the LiteLLM postgres role
+#   litellm-salt-key    — used by LiteLLM to encrypt stored creds
 #
 # Optional keys:
 #   firecrawl-api-key  — enables web_search tool
+#   litellm-ui-username — required when .Values.litellm.ui.requireBasicAuth
+#   litellm-ui-password — required when .Values.litellm.ui.requireBasicAuth
+#
+# Provider API keys (Bedrock bearer, OpenAI key, Anthropic key,
+# Gemini key, etc) are NOT secret-mounted any more — admin enters
+# them in the LiteLLM admin UI when adding a model row, and the
+# proxy persists them encrypted with litellm-salt-key.
 #
 # See examples/secret.yaml and examples/externalsecret.yaml in the repo.
 existingSecret: ""
@@ -67,6 +75,9 @@ postgres:
   port: 5432
   backup:
     enabled: true
+    schedule: "0 */6 * * *"        # default: every 6 hours
+    retainCount: 20                # keep last N backups
+    storage: 2Gi                   # PVC size for the backup volume
   resources:
     requests:
       cpu: 100m
@@ -92,6 +103,9 @@ postgres:
     cidr: ""
 
 redis:
+  # Image override; the chart pins a default in the template. Set
+  # to a digest if you want a stable rebuild surface.
+  image: redis:7-alpine
   resources:
     requests:
       cpu: 50m
@@ -143,13 +157,63 @@ operator:
 litellm:
   replicas: 1
   port: 4000
+  # The chart pulls BerriAI's official upstream image directly —
+  # we don't rebuild a fork. Override here to pin a different tag
+  # or to switch to a digest pin for supply-chain hardening, e.g.
+  #   image: "ghcr.io/berriai/litellm-database:v1.83.10-stable@sha256:..."
+  # Leave unset to use the chart default (a versioned stable tag).
+  image: ""
   resources:
     requests:
       cpu: 100m
-      memory: 256Mi
+      memory: 1Gi
     limits:
-      cpu: 500m
-      memory: 512Mi
+      cpu: 1000m
+      # The official litellm-database image holds ~1.5GB during prisma
+      # migrate on first boot. 1Gi OOM-killed at 24s with no logs (exit
+      # 137). Steady-state usage is closer to 600MB.
+      memory: 2Gi
+  # ─────────────────────────────────────────────────────────────
+  # LiteLLM database + admin UI (optional)
+  # ─────────────────────────────────────────────────────────────
+  # When enabled, LiteLLM persists virtual keys, spend logs, audit
+  # records, and any state created via the admin UI to a dedicated
+  # `litellm` database in the platform Postgres. A post-install Helm
+  # hook provisions the database and role idempotently. Disabled by
+  # default so existing deployments don't break — to enable on an
+  # already-running cluster, add the secret keys listed below to the
+  # existingSecret and set `litellm.database.enabled=true`.
+  #
+  # Required secret keys when enabled:
+  #   litellm-db-password   — password for the `litellm` postgres role
+  #   litellm-salt-key      — used by LiteLLM to encrypt stored creds
+  database:
+    # On by default — every spend / virtual-key / SSO feature
+    # depends on it. Can flip to false for an installs that
+    # genuinely doesn't want LiteLLM-backed spend tracking, but
+    # the platform's admin spend dashboard, per-project budgets,
+    # SSO passport, and the LiteLLM admin UI all stop working.
+    enabled: true
+    connectionPoolLimit: 10
+  # All models — Bedrock, OpenAI, Anthropic-direct, Gemini, Azure,
+  # whatever — are admin-managed from the LiteLLM admin UI itself,
+  # reachable via the SSO passport at /api/admin/litellm-passport
+  # (linked from fireseed Settings → Manage models). The model row
+  # + api_key persist in LiteLLM_ProxyModelTable (encrypted at rest
+  # with litellm-salt-key) and survive helm upgrades. A fresh
+  # cluster ships with no models — admin adds the first one via the
+  # LiteLLM UI before the platform can serve a chat.
+  ui:
+    # Path prefix at which the LiteLLM admin UI is exposed on the
+    # platform ingress. Empty disables the path-based ingress route
+    # (and SERVER_ROOT_PATH on the deployment).
+    pathPrefix: /litellm
+    # Defense-in-depth: even though admins shouldn't ever need to
+    # reach /litellm/ directly (the fireseed Models page covers
+    # everything), keep the basic-auth gate so a curious user
+    # walking the Tailscale tailnet hits a master-key login instead
+    # of an open admin UI. Set to false to fully open it.
+    requireBasicAuth: true
 
 browser:
   replicas: 2
@@ -165,6 +229,25 @@ browser:
 squid:
   replicas: 1
   port: 3128
+  # Initial host allowlist — seeded into AllowedHost rows on first
+  # platform boot AND rendered into squid's allowed_hosts.txt at
+  # chart install. Admins extend the list at runtime via Settings →
+  # Hosts (the api PATCHes the configmap and rolls the squid pod);
+  # extending here adds them on every fresh install + on every helm
+  # upgrade that runs against an unseeded DB. After first boot the
+  # api is authoritative — helm upgrades will NOT clobber a list the
+  # admin extended via the UI (the configmap's data is overwritten
+  # by helm but the AllowedHost rows persist; the next mutation
+  # syncs the configmap back to match the DB).
+  defaultHosts:
+    - hostname: pypi.org
+      description: Python Package Index
+    - hostname: files.pythonhosted.org
+      description: PyPI file downloads
+    - hostname: registry.npmjs.org
+      description: npm registry
+    - hostname: cdn.jsdelivr.net
+      description: jsDelivr CDN
   resources:
     requests:
       cpu: 50m
@@ -202,6 +285,13 @@ gitSync:
 # ─────────────────────────────────────────────────────────────
 # Ingress
 # ─────────────────────────────────────────────────────────────
+# App namespace where the operator provisions FireseedApp child
+# resources. The shared operator routes per-app NetworkPolicies to
+# whichever platform owns the namespace via the
+# fireseed.dev/platform label. Demo overrides this to
+# fireseed-demo-apps via its own chart.
+appNamespace: fireseed-apps
+
 ingress:
   enabled: true
   # Leave className empty to use the cluster's default IngressClass.

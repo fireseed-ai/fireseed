@@ -7,6 +7,14 @@ metadata:
     app: fireseed-squid
     {{- include "fireseed.labels" . | nindent 4 }}
 data:
+  # Mirrors services/squid/squid.conf — the file the squid Dockerfile
+  # bakes as a fallback. Helm's mount of this configmap at
+  # /etc/squid/squid.conf overrides the baked file at runtime, so this
+  # is the authoritative copy. Keep the two in sync. Logs go to a
+  # writable file path under /var/log/squid (the Dockerfile chowns
+  # that directory to the proxy user) — squid 6.14 + non-root +
+  # readOnlyRootFilesystem can't open /dev/stdout, so we don't try.
+  # Alloy DaemonSet picks up file logs via the host log directory.
   squid.conf: |
     acl fireseed_allowed dstdomain "/etc/squid/allowed_hosts.txt"
     acl SSL_ports port 443
@@ -37,8 +45,10 @@ data:
     connect_timeout 30 seconds
     read_timeout 300 seconds
     forwarded_for delete
+  # Rendered from .Values.squid.defaultHosts so an admin can extend
+  # the boot-time allowlist without forking. After first boot the api
+  # owns this configmap (admin Settings → Hosts → _sync_squid_configmap).
   allowed_hosts.txt: |
-    pypi.org
-    files.pythonhosted.org
-    registry.npmjs.org
-    cdn.jsdelivr.net
+    {{- range .Values.squid.defaultHosts }}
+    {{ .hostname }}
+    {{- end }}

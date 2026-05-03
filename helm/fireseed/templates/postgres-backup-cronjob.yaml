@@ -8,7 +8,7 @@ metadata:
     app: fireseed-postgres-backup
     {{- include "fireseed.labels" . | nindent 4 }}
 spec:
-  schedule: "0 */6 * * *"  # Every 6 hours
+  schedule: {{ .Values.postgres.backup.schedule | default "0 */6 * * *" | quote }}
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 3
   failedJobsHistoryLimit: 1
@@ -30,8 +30,8 @@ spec:
                   echo "Starting backup to ${BACKUP_FILE}..."
                   PGPASSWORD="${POSTGRES_PASSWORD}" pg_dump -h fireseed-postgres -U "${POSTGRES_USER}" "${POSTGRES_DB}" | gzip > "${BACKUP_FILE}"
                   echo "Backup complete: $(du -h ${BACKUP_FILE} | cut -f1)"
-                  # Keep last 20 backups, delete older ones
-                  ls -t /backups/*.sql.gz 2>/dev/null | tail -n +21 | xargs rm -f 2>/dev/null
+                  # Keep last RETAIN_COUNT backups, delete older ones
+                  ls -t /backups/*.sql.gz 2>/dev/null | tail -n +$((${RETAIN_COUNT}+1)) | xargs rm -f 2>/dev/null
                   echo "Cleanup done. Backups on disk:"
                   ls -lh /backups/*.sql.gz 2>/dev/null
               env:
@@ -44,6 +44,8 @@ spec:
                       key: postgres-password
                 - name: POSTGRES_DB
                   value: {{ .Values.postgres.database | quote }}
+                - name: RETAIN_COUNT
+                  value: {{ .Values.postgres.backup.retainCount | default 20 | quote }}
               volumeMounts:
                 - name: backup-storage
                   mountPath: /backups
@@ -64,6 +66,6 @@ spec:
     - ReadWriteOnce
   resources:
     requests:
-      storage: 2Gi
+      storage: {{ .Values.postgres.backup.storage | default "2Gi" | quote }}
 
 {{- end }}

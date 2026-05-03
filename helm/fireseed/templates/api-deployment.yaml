@@ -43,11 +43,6 @@ spec:
                 secretKeyRef:
                   name: {{ include "fireseed.secretName" $ }}
                   key: postgres-password
-            - name: AWS_BEARER_TOKEN_BEDROCK
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "fireseed.secretName" $ }}
-                  key: aws-bearer-token
             - name: SECRET_KEY
               valueFrom:
                 secretKeyRef:
@@ -78,6 +73,10 @@ spec:
                 secretKeyRef:
                   name: {{ include "fireseed.secretName" $ }}
                   key: admin-password
+            - name: APP_NAMESPACE
+              value: {{ .Values.appNamespace | default "fireseed-apps" | quote }}
+            - name: SQUID_DEFAULT_HOSTS_JSON
+              value: {{ .Values.squid.defaultHosts | toJson | quote }}
           readinessProbe:
             httpGet:
               path: /health
