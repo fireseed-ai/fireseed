@@ -55,6 +55,17 @@ spec:
             # global.
             - name: STORE_MODEL_IN_DB
               value: "True"
+            # When the proxy auto-bridges OpenAI reasoning models from
+            # /chat/completions to /v1/responses (gpt-5.x, o-series,
+            # codex), this flag tells the bridge to request a
+            # reasoning summary and surface it back as
+            # `delta.reasoning_content` on the chat-completions stream
+            # — the same field Anthropic's extended thinking already
+            # populates. The platform agent reads `reasoning_content`
+            # uniformly, so the Thoughts pill lights up for any model
+            # that supports reasoning, no UI changes needed.
+            - name: LITELLM_REASONING_AUTO_SUMMARY
+              value: "true"
             {{- if .Values.litellm.database.enabled }}
             - name: LITELLM_DB_PASSWORD
               valueFrom:

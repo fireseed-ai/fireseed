@@ -50,3 +50,22 @@ data:
       # complements this; new params should test on a non-reasoning
       # model before being assumed safe.
       drop_params: true
+      # Provider-agnostic fallback chains. The keys are the
+      # caller's logical alias; the values are alternates the proxy
+      # tries on RateLimitError / 5xx / context-overflow before
+      # giving up. Empty by default — admins populate via
+      # `.Values.litellm.fallbacks` once they've added a second
+      # model row that's interchangeable with the first. Example:
+      #   fallbacks:
+      #     - "claude-opus-4-7": ["claude-sonnet-4-6", "gpt-5.3-codex"]
+      # The agent doesn't pick the alternate; LiteLLM transparently
+      # retries and the chat continues. No code knows model names.
+      {{- with .Values.litellm.fallbacks }}
+      fallbacks: {{ toJson . }}
+      {{- end }}
+      {{- with .Values.litellm.contextWindowFallbacks }}
+      context_window_fallbacks: {{ toJson . }}
+      {{- end }}
+      {{- with .Values.litellm.contentPolicyFallbacks }}
+      content_policy_fallbacks: {{ toJson . }}
+      {{- end }}

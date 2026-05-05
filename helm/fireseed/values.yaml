@@ -163,6 +163,22 @@ litellm:
   #   image: "ghcr.io/berriai/litellm-database:v1.83.10-stable@sha256:..."
   # Leave unset to use the chart default (a versioned stable tag).
   image: ""
+  # Fallback chains the proxy tries on RateLimitError / 5xx /
+  # context-overflow / content-policy refusals before failing the
+  # request. List form, each entry is `{<primary alias>: [<alt>, …]}`.
+  # Admin owns this — pick alternates that are interchangeable with
+  # the primary (similar context window, similar tool support).
+  # Empty by default: a fresh install has no fallbacks.
+  #
+  # Example:
+  #   fallbacks:
+  #     - "claude-opus-4-7": ["claude-sonnet-4-6"]
+  #     - "gpt-5.3-codex":   ["claude-sonnet-4-6"]
+  #   contextWindowFallbacks:
+  #     - "claude-haiku-4-5": ["claude-sonnet-4-6"]
+  fallbacks: []
+  contextWindowFallbacks: []
+  contentPolicyFallbacks: []
   resources:
     requests:
       cpu: 100m
