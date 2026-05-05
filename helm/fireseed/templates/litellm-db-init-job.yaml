@@ -8,7 +8,7 @@
 # `fireseed` superuser has it; RDS master users have it too.
 #
 # Runs as a pre-install / pre-upgrade hook so the database exists
-# before the litellm pod's new DATABASE_URL is dialled.
+# before the litellm pod's DATABASE_URL is dialled.
 apiVersion: v1
 kind: ConfigMap
 metadata:
