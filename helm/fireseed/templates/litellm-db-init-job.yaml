@@ -1,15 +1,14 @@
 {{- if .Values.litellm.database.enabled }}
-# Idempotent provisioning of the LiteLLM database and role.
-# Runs as a Helm post-install / post-upgrade hook. Safe to re-run on
-# every upgrade — the role-creation block is wrapped in a pg_roles
-# check, and the database creation runs only when the database is
-# missing, so subsequent invocations are no-ops.
+# Idempotent provisioning of the LiteLLM database.
 #
-# Connects to the platform Postgres (bundled StatefulSet by default,
-# external RDS-style if postgres.external.enabled). The connecting user
-# must have CREATEDB and CREATEROLE; the bundled `fireseed` superuser
-# does, and the comment on postgres.external.user notes that RDS master
-# users do too.
+# LiteLLM uses the same postgres user + password as the rest of the
+# platform — we just want a separate database so its Prisma-managed
+# tables don't sit alongside fireseed-api's. The connecting user
+# becomes the new database's owner and needs CREATEDB. The bundled
+# `fireseed` superuser has it; RDS master users have it too.
+#
+# Runs as a pre-install / pre-upgrade hook so the database exists
+# before the litellm pod's new DATABASE_URL is dialled.
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -19,10 +18,6 @@ metadata:
     app: fireseed-litellm
     {{- include "fireseed.labels" . | nindent 4 }}
   annotations:
-    # pre-upgrade so the database exists before the new litellm pod
-    # tries to connect with the new DATABASE_URL. post-install hooks
-    # don't run until all resources are Ready, which never happens when
-    # the pod is crash-looping waiting for a database.
     "helm.sh/hook": pre-install,pre-upgrade
     "helm.sh/hook-weight": "-5"
     "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
@@ -38,39 +33,14 @@ data:
       sleep 2
     done
 
-    LITELLM_USER="{{ include "fireseed.litellmDatabaseUser" . }}"
     LITELLM_DB="{{ include "fireseed.litellmDatabaseName" . }}"
-
-    # psql variable substitution (`:'pw'`) works in plain statements
-    # but NOT inside DO $$ … $$ blocks — the substitution happens
-    # client-side before the dollar-quoted body is sent. Stay outside
-    # DO blocks throughout.
-    ROLE_EXISTS=$(psql -h "$PG_HOST" -U "$PG_USER" -d postgres -tAc \
-      "SELECT 1 FROM pg_catalog.pg_roles WHERE rolname='$LITELLM_USER'" || true)
-    if [ "$ROLE_EXISTS" != "1" ]; then
-      echo "Creating role '$LITELLM_USER'…"
-      psql -v ON_ERROR_STOP=1 -h "$PG_HOST" -U "$PG_USER" -d postgres \
-        -c "CREATE ROLE \"$LITELLM_USER\" WITH LOGIN"
-    fi
-
-    # Always reset the password (idempotent — keeps the DB password in
-    # sync with whatever's in the secret). psql `-v` substitution only
-    # fires for SQL read from stdin / a file, not for `-c` strings, so
-    # we send the statement via heredoc.
-    echo "Setting password for '$LITELLM_USER'…"
-    psql -v ON_ERROR_STOP=1 -v pw="$LITELLM_DB_PASSWORD" \
-         -h "$PG_HOST" -U "$PG_USER" -d postgres <<EOF
-    ALTER ROLE "$LITELLM_USER" WITH LOGIN PASSWORD :'pw';
-    EOF
 
     DB_EXISTS=$(psql -h "$PG_HOST" -U "$PG_USER" -d postgres -tAc \
       "SELECT 1 FROM pg_database WHERE datname='$LITELLM_DB'" || true)
     if [ "$DB_EXISTS" != "1" ]; then
-      echo "Creating database '$LITELLM_DB'…"
-      # CREATE DATABASE can't run inside a transaction block; psql -c
-      # implicitly uses autocommit, which is what we want.
+      echo "Creating database '$LITELLM_DB' owned by '$PG_USER'…"
       psql -v ON_ERROR_STOP=1 -h "$PG_HOST" -U "$PG_USER" -d postgres \
-        -c "CREATE DATABASE \"$LITELLM_DB\" OWNER \"$LITELLM_USER\""
+        -c "CREATE DATABASE \"$LITELLM_DB\""
     fi
 
     echo "Done."
@@ -114,11 +84,6 @@ spec:
                   key: postgres-password
             - name: PGCONNECT_TIMEOUT
               value: "10"
-            - name: LITELLM_DB_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "fireseed.secretName" $ }}
-                  key: litellm-db-password
           volumeMounts:
             - name: scripts
               mountPath: /scripts

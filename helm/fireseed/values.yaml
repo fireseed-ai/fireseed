@@ -18,7 +18,6 @@ baseDomain: ""
 #   litellm-key        — LiteLLM master key (sk-…)
 #   service-token      — internal service-to-service auth token
 #   admin-password     — bootstrap admin user password (user is admin@internal)
-#   litellm-db-password — password for the LiteLLM postgres role
 #   litellm-salt-key    — used by LiteLLM to encrypt stored creds
 #
 # Optional keys:
@@ -194,14 +193,15 @@ litellm:
   # ─────────────────────────────────────────────────────────────
   # When enabled, LiteLLM persists virtual keys, spend logs, audit
   # records, and any state created via the admin UI to a dedicated
-  # `litellm` database in the platform Postgres. A post-install Helm
-  # hook provisions the database and role idempotently. Disabled by
-  # default so existing deployments don't break — to enable on an
-  # already-running cluster, add the secret keys listed below to the
-  # existingSecret and set `litellm.database.enabled=true`.
+  # `litellm` database in the platform Postgres — same user and
+  # password as the rest of the platform, separate database so
+  # LiteLLM's Prisma-managed tables stay out of the main schema.
+  # A pre-install Helm hook (CREATE DATABASE if not exists) handles
+  # provisioning idempotently. On by default; flip to false for an
+  # install that doesn't want LiteLLM-backed spend tracking (also
+  # disables the admin UI / SSO passport).
   #
   # Required secret keys when enabled:
-  #   litellm-db-password   — password for the `litellm` postgres role
   #   litellm-salt-key      — used by LiteLLM to encrypt stored creds
   database:
     # On by default — every spend / virtual-key / SSO feature

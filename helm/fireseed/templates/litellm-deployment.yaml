@@ -71,12 +71,9 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: {{ include "fireseed.secretName" $ }}
-                  key: litellm-db-password
-            # The $(LITELLM_DB_PASSWORD) form is k8s env-var
-            # interpolation — populated from the entry above. Keeps the
-            # cleartext password out of any rendered manifest.
+                  key: postgres-password
             - name: DATABASE_URL
-              value: "postgresql://{{ include "fireseed.litellmDatabaseUser" . }}:$(LITELLM_DB_PASSWORD)@{{ include "fireseed.postgresHost" . }}:{{ include "fireseed.postgresPort" . }}/{{ include "fireseed.litellmDatabaseName" . }}"
+              value: "postgresql://{{ include "fireseed.postgresUser" . }}:$(LITELLM_DB_PASSWORD)@{{ include "fireseed.postgresHost" . }}:{{ include "fireseed.postgresPort" . }}/{{ include "fireseed.litellmDatabaseName" . }}"
             - name: LITELLM_SALT_KEY
               valueFrom:
                 secretKeyRef:

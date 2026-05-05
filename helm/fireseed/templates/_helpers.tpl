@@ -81,15 +81,12 @@ fireseed-postgres.{{ include "fireseed.namespace" . }}.svc.cluster.local
 {{- end -}}
 
 {{/*
-LiteLLM database name. Always `litellm` for in-cluster Postgres; for an
-external database the operator must have CREATEDB / CREATEROLE so the
-init job can provision it the same way.
+LiteLLM database name. Always `litellm` — provisioned by the helm
+hook init job using the platform's postgres user (which becomes the
+DB owner). Same credentials as the platform DB, separate database
+to keep LiteLLM's Prisma-managed tables out of the main schema.
 */}}
 {{- define "fireseed.litellmDatabaseName" -}}
-litellm
-{{- end -}}
-
-{{- define "fireseed.litellmDatabaseUser" -}}
 litellm
 {{- end -}}
 
